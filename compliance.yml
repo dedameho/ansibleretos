@@ -1,0 +1,86 @@
+- name: Aplicar politicas de cumplimiento
+  hosts: web
+  vars: 
+   ssh_port: 22
+   max_auth_tries: 3
+  become: true
+  tasks:
+    - name: Verificar e instalar firewalld sino esta instalado
+      ansible.builtin.dnf:
+        name: firewalld
+        state: present
+    - name: Iniciar y habilitar firewalld sino esta activo
+      ansible.builtin.systemd:
+       name: firewalld
+       state: started
+       enabled: true
+    - name: Permitir puerto ssh en firewall
+      ansible.posix.firewalld:
+       service: "ssh"
+       state: enabled
+       permanent: yes
+       immediate: yes
+    - name: Permisos de archivo passwd
+      ansible.builtin.file:
+       path: /etc/passwd
+       owner: root
+       group: root
+       mode: '0644'
+    - name: Bloquear servicios no requeridos
+      ansible.posix.firewalld:
+        service: "{{ item }}"
+        state: disabled
+        permanent: yes
+        immediate: yes
+      loop:
+        - cockpit
+        - dhcpv6-client
+        - telnet.socket
+        - vsftpd
+    - name: SELinux en modo enforcing
+      ansible.builtin.replace:
+       path: /etc/selinux/config
+       regexp: '^SELINUX=.*'
+       replace: 'SELINUX=enforcing'
+    - name: limintar intentos fallidos login SSH
+      ansible.builtin.lineinfile:
+       path: /etc/ssh/sshd_config
+       regexp: '^MaxAuthTries'
+       line: "MaxAuthTries {{max_auth_tries}}"
+       create: yes
+      notify: Reiniciar SSH
+    - name: Habilitar politica de complejidad de contraseña
+      ansible.builtin.lineinfile:
+       path: /etc/security/pwquality.conf
+       regexp: '^minclass'
+       line: 'minclass=4'
+       create: yes
+    - name: Establecer el historial de contraseña
+      ansible.builtin.lineinfile:
+       path: /etc/security/pwquality.conf
+       regexp: '^remember'
+    - name: Limitar intentos de inicio de sesión fallidos
+      ansible.builtin.lineinfile:
+        path: /etc/pam.d/sshd
+        line: 'auth required pam_tally2.so onerr deny=5 even_deny_root reset'
+        state: present
+      become: true
+       line: 'remember=5'
+    - name: Verificar si se requiere reiniciar
+      ansible.builtin.debug:
+        msg: "Reinicio necesario: {{ selinux_status.reboot_required }}"
+      changed_when: "{{ selinux_status.reboot_required | bool }}"
+      notify: Reiniciar
+  handlers:
+    - name: Reiniciar SSH
+      ansible.builtin.systemd:
+        name: sshd
+        state: restarted
+      become: true
+    - name: Reiniciar
+      ansible.builtin.reboot:
+        reboot_timeout: 360
+
+
+
+       
