@@ -61,13 +61,12 @@
       ansible.builtin.lineinfile:
        path: /etc/security/pwquality.conf
        regexp: '^remember'
+       line: 'remember=5'
     - name: Limitar intentos de inicio de sesión fallidos
       ansible.builtin.lineinfile:
         path: /etc/pam.d/sshd
         line: 'auth required pam_tally2.so onerr deny=5 even_deny_root reset'
         state: present
-      become: true
-       line: 'remember=5'
     - name: Verificar si se requiere reiniciar
       ansible.builtin.debug:
         msg: "Reinicio necesario: {{ selinux_status.reboot_required }}"
