@@ -40,10 +40,10 @@
         - telnet.socket
         - vsftpd
     - name: SELinux en modo enforcing
-      ansible.builtin.replace:
-       path: /etc/selinux/config
-       regexp: '^SELINUX=.*'
-       replace: 'SELINUX=enforcing'
+      ansible.posix.selinux:
+        policy: targeted
+        state: enforcing
+      register: selinux_status
     - name: limintar intentos fallidos login SSH
       ansible.builtin.lineinfile:
        path: /etc/ssh/sshd_config
