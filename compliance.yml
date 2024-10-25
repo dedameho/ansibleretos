@@ -1,3 +1,5 @@
+
+---
 - name: Aplicar politicas de cumplimiento
   hosts: web
   vars: 
@@ -80,6 +82,7 @@
     - name: Reiniciar
       ansible.builtin.reboot:
         reboot_timeout: 360
+...
 
 
 
